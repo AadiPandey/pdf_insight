@@ -6,7 +6,7 @@ A modern, web-based PDF parser that extracts structured data from PDF files and 
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## ✨ Features
+## Features
 
 - **PDF Text Extraction**: Extract all text content from PDF documents
 - **Table Detection**: Automatically detect and extract tables from PDFs
@@ -17,7 +17,7 @@ A modern, web-based PDF parser that extracts structured data from PDF files and 
 - **Syntax Highlighting**: Color-coded JSON output for better readability
 - **RESTful API**: Easy-to-use API endpoint for programmatic access
 
-## 🚀 Future Roadmap
+## Future Roadmap
 
 This project serves as the foundation for a more advanced **PDF Question-Answering System** that will:
 - Allow users to upload multiple PDFs
@@ -26,14 +26,14 @@ This project serves as the foundation for a more advanced **PDF Question-Answeri
 - Provide AI-powered answers based on PDF content
 - Support document embeddings and semantic search
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Backend**: FastAPI (Python)
 - **PDF Processing**: pdfplumber
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
 - **Server**: Uvicorn ASGI server
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Python 3.8 or higher
 - pip (Python package manager)
