@@ -1,7 +1,9 @@
 import io
 import pdfplumber
+import tiktoken
+import uvicorn
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse 
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
@@ -22,7 +24,7 @@ def extract_pdf_data(file_bytes):
                 
                 data["pages"].append({
                     "page_number": i + 1,
-                    "text_preview": text[:200] + "..." if text else "", # Preview only to save space
+                    "text_preview": text[:200] + "..." if text else "", 
                     "full_text": text,
                     "tables": tables,
                     "width": page.width,
@@ -31,6 +33,35 @@ def extract_pdf_data(file_bytes):
             return data
     except Exception as e:
         return {"error": str(e)}
+
+def chunk_text(text: str, page_num: int, chunk_size: int = 500, overlap: int = 50):
+    """
+    Splits text into chunks with overlap, preserving metadata.
+    """
+    encoding = tiktoken.get_encoding("cl100k_base") 
+    tokens = encoding.encode(text)
+    
+    total_tokens = len(tokens)
+    chunks = []
+
+    for i in range(0, total_tokens, chunk_size - overlap):
+        chunk_tokens = tokens[i : i + chunk_size]
+
+        chunk_text = encoding.decode(chunk_tokens)
+        
+        chunks.append({
+            "chunk_id": f"pg{page_num}_chk{len(chunks)+1}",
+            "page_number": page_num,
+            "token_count": len(chunk_tokens),
+            "text": chunk_text
+        })
+
+        if i + chunk_size >= total_tokens:
+            break
+            
+    return chunks
+
+
 
 @app.post("/api/parse")
 async def parse_pdf(file: UploadFile = File(...)):
@@ -41,13 +72,52 @@ async def parse_pdf(file: UploadFile = File(...)):
     json_result = extract_pdf_data(content)
     return json_result
 
-# Serve the frontend
+@app.post("/api/tokenize")
+async def tokenize_pdf(file: UploadFile = File(...)):
+    """
+    1. Parses PDF
+    2. Iterates through pages
+    3. Chunks the text
+    4. Returns flat list of chunks ready for embedding
+    """
+    content = await file.read()
+    
+    raw_data = extract_pdf_data(content)
+    
+    if "error" in raw_data:
+        return raw_data
+
+    all_chunks = []
+    
+    for page in raw_data["pages"]:
+        page_text = page["full_text"]
+        if page_text:
+            clean_text = page_text.replace("\n", " ").strip()
+            
+            page_chunks = chunk_text(clean_text, page["page_number"])
+            all_chunks.extend(page_chunks)
+
+    return {
+        "filename": file.filename,
+        "total_chunks": len(all_chunks),
+        "chunks": all_chunks
+    }
+
+
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
     with open("index.html", "r") as f:
         return f.read()
 
+@app.get("/style.css")
+async def get_css():
+    return FileResponse("style.css")
+
+@app.get("/script.js")
+async def get_js():
+    return FileResponse("script.js")
+
+
 if __name__ == "__main__":
-    import uvicorn
-    # Run the app on http://localhost:8000
     uvicorn.run(app, host="0.0.0.0", port=8000)
