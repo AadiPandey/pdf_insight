@@ -2,6 +2,8 @@
 
 An intelligent PDF question-answering system powered by RAG (Retrieval-Augmented Generation). Upload PDFs, process them through a visual pipeline, and ask questions using Google's Gemini AI.
 
+🚀 **[Live Demo](https://pdf-insight-3z6i.onrender.com)**
+
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
 ![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-orange.svg)
