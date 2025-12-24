@@ -1,109 +1,106 @@
-let selectedFile = null;
+let currentData = null;
 
 function handleFileSelect(event) {
     const file = event.target.files[0];
-    if (!file) return;
-
-    selectedFile = file;
-
-
-    document.getElementById('filename-display').textContent = file.name;
-
-
-    const parseBtn = document.getElementById('parseBtn');
-    if (parseBtn) parseBtn.disabled = false;
-
-   
-    const tokenBtn = document.getElementById('tokenBtn');
-    if (tokenBtn) {
-        tokenBtn.style.display = 'none';
-        tokenBtn.disabled = true;
+    if (file) {
+        document.getElementById('filename').innerText = file.name;
+        document.getElementById('file-info').classList.remove('hidden');
+        document.getElementById('uploadBtn').classList.remove('hidden');
     }
-
-
-    const fileURL = URL.createObjectURL(file);
-    const iframe = document.getElementById('pdfFrame');
-    const placeholder = document.getElementById('pdfPlaceholder');
-
-    if (iframe && placeholder) {
-        iframe.src = fileURL;
-        iframe.style.display = 'block';
-        placeholder.style.display = 'none';
-    }
-
-
-    document.getElementById('jsonOutput').innerHTML = '';
-    document.getElementById('statusText').textContent = 'Ready to parse';
 }
 
-async function uploadPDF(mode = 'parse') {
-    if (!selectedFile) return;
+async function startPipeline() {
+    const fileInput = document.getElementById('pdfInput');
+    const btn = document.getElementById('uploadBtn');
 
-    const parseBtn = document.getElementById('parseBtn');
-    const tokenBtn = document.getElementById('tokenBtn');
-    const loader = document.getElementById('loader');
-    const output = document.getElementById('jsonOutput');
-    const status = document.getElementById('statusText');
+    if (!fileInput.files[0]) return;
 
-
-    if (parseBtn) parseBtn.disabled = true;
-    if (tokenBtn) tokenBtn.disabled = true;
-
-    loader.style.display = 'flex';
+    btn.disabled = true;
+    btn.innerText = "Processing...";
 
     const formData = new FormData();
-    formData.append("file", selectedFile);
-
-    const endpoint = mode === 'tokenize' ? '/api/tokenize' : '/api/parse';
+    formData.append("file", fileInput.files[0]);
 
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            body: formData
+        const response = await fetch('/api/process', { method: 'POST', body: formData });
+        currentData = await response.json();
+
+        document.getElementById('jsonOutput').innerText = JSON.stringify(currentData.json_preview, null, 2);
+
+        const grid = document.getElementById('chunksOutput');
+        grid.innerHTML = '';
+        currentData.chunks_preview.forEach(chunk => {
+            const card = document.createElement('div');
+            card.className = 'chunk-card';
+            card.innerHTML = `
+                <div class="chunk-meta">Page ${chunk.metadata.page} • ${chunk.text.length} chars</div>
+                <div class="chunk-text">${chunk.text}</div>
+            `;
+            grid.appendChild(card);
         });
 
-        if (!response.ok) throw new Error(response.statusText);
-
-        const data = await response.json();
-
-        output.innerHTML = syntaxHighlight(data);
-
-        if (mode === 'tokenize') {
-            status.textContent = `✓ Created ${data.total_chunks || 0} Chunks`;
-            status.style.color = "#4ade80";
-        } else {
-            status.textContent = `✓ Processed ${data.total_pages || 0} Pages`;
-            status.style.color = "#4ade80";
-
-            if (tokenBtn) {
-                tokenBtn.style.display = 'inline-flex'; 
-                tokenBtn.disabled = false;              
-            }
-        }
+        nextPage(2);
 
     } catch (error) {
-        output.textContent = "Error: " + error.message;
-        output.style.color = "#ff6b6b";
-        status.textContent = "Failed";
-        status.style.color = "#ff6b6b";
-    } finally {
-        
-        if (parseBtn) parseBtn.disabled = false;
-        if (tokenBtn && tokenBtn.style.display !== 'none') tokenBtn.disabled = false;
-        loader.style.display = 'none';
+        alert("Error: " + error.message);
+        btn.disabled = false;
+        btn.innerText = "Try Again";
     }
 }
 
-function syntaxHighlight(json) {
-    if (typeof json != 'string') json = JSON.stringify(json, undefined, 2);
-    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-        let cls = 'number';
-        if (/^"/.test(match)) {
-            if (/:$/.test(match)) cls = 'key';
-            else cls = 'string';
-        } else if (/true|false/.test(match)) cls = 'boolean';
-        else if (/null/.test(match)) cls = 'null';
-        return '<span class="' + cls + '">' + match + '</span>';
-    });
+function nextPage(pageNumber) {
+    document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+
+    document.getElementById(`page-${pageNumber}`).classList.remove('hidden');
+    document.getElementById(`page-${pageNumber}`).classList.add('active');
+
+    document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+    document.getElementById(`step${pageNumber}`).classList.add('active');
+}
+
+async function askGemini() {
+    const input = document.getElementById('userQuestion');
+    const question = input.value.trim();
+    if (!question) return;
+
+    addMessage("You", question, "user");
+    input.value = '';
+
+    const loadingId = addMessage("Gemini", "...", "ai");
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: question })
+        });
+        const data = await response.json();
+
+        const htmlAnswer = marked.parse(data.answer);
+        updateMessage(loadingId, htmlAnswer);
+
+    } catch (error) {
+        updateMessage(loadingId, "Error getting response.");
+    }
+}
+
+function addMessage(name, text, type) {
+    const history = document.getElementById('chatHistory');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${type}`;
+    msgDiv.id = 'msg-' + Date.now();
+    msgDiv.innerHTML = `<div class="bubble">${text}</div>`;
+    history.appendChild(msgDiv);
+    history.scrollTop = history.scrollHeight;
+    return msgDiv.id;
+}
+
+function updateMessage(id, html) {
+    const bubble = document.querySelector(`#${id} .bubble`);
+    if (bubble) bubble.innerHTML = html;
+}
+
+function handleEnter(e) {
+    if (e.key === 'Enter') askGemini();
 }

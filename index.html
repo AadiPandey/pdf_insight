@@ -4,58 +4,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Extraction Dashboard</title>
+    <title>PDF RAG Pipeline</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <header>
-        <h1>📄 PDF Extractor</h1>
-        <div class="controls">
-            <span id="filename-display">No file selected</span>
+    <div class="container">
+        <div class="progress-track">
+            <div class="step active" id="step1">1. Upload</div>
+            <div class="step" id="step2">2. JSON</div>
+            <div class="step" id="step3">3. Chunks</div>
+            <div class="step" id="step4">4. Chat</div>
+        </div>
 
-            <input type="file" id="pdfInput" accept=".pdf" onchange="handleFileSelect(event)" />
+        <div id="page-1" class="page active">
+            <div class="card center-card">
+                <div class="icon-large">📂</div>
+                <h2>Upload Document</h2>
+                <p class="subtext">Select a PDF to begin the ingestion pipeline.</p>
 
-            <label for="pdfInput" class="btn btn-secondary">
-                📂 Select PDF
-            </label>
+                <input type="file" id="pdfInput" accept=".pdf" hidden onchange="handleFileSelect(event)">
+                <button class="btn btn-outline" onclick="document.getElementById('pdfInput').click()">Select
+                    PDF</button>
 
-            <div style="display:flex; gap:10px;">
-                <button onclick="uploadPDF('parse')" id="parseBtn" class="btn btn-primary" disabled>
-                    🚀 Parse JSON
+                <div id="file-info" class="hidden">
+                    <span id="filename">file.pdf</span>
+                </div>
+
+                <button id="uploadBtn" class="btn btn-primary hidden" onclick="startPipeline()">
+                    Process Document &rarr;
                 </button>
-            
-                <button onclick="uploadPDF('tokenize')" id="tokenBtn" class="btn btn-secondary" style="display:none" disabled>
-                    🧩 Tokenize
-                </button>
             </div>
-        </div>
-    </header>
-
-    <div class="workspace">
-        <div class="pdf-panel" id="pdfContainer">
-            <div class="empty-state" id="pdfPlaceholder">
-                <p>Upload a PDF to view content</p>
-            </div>
-            <iframe id="pdfFrame" style="display:none;"></iframe>
         </div>
 
-        <div class="json-panel">
-            <div class="panel-header">
-                <span>JSON Output</span>
-                <span id="statusText" style="color: #888">Waiting...</span>
+        <div id="page-2" class="page hidden">
+            <div class="header-row">
+                <h2>Raw Extraction (JSON)</h2>
+                <button class="btn btn-primary" onclick="nextPage(3)">Next: Tokenize & Chunk &rarr;</button>
             </div>
-            <div class="loader" id="loader">
-                <div class="spinner"></div>
-                <span>Processing Document...</span>
+            <div class="code-viewer">
+                <pre id="jsonOutput">Loading...</pre>
             </div>
-            <pre id="jsonOutput"></pre>
         </div>
+
+        <div id="page-3" class="page hidden">
+            <div class="header-row">
+                <h2>Vector Embeddings</h2>
+                <button class="btn btn-primary" onclick="nextPage(4)">Finish: Go to Chat &rarr;</button>
+            </div>
+            <p class="subtext">The text has been split into chunks and converted to vector embeddings.</p>
+
+            <div class="chunks-grid" id="chunksOutput">
+            </div>
+        </div>
+
+        <div id="page-4" class="page hidden">
+            <div class="chat-wrapper">
+                <div id="chatHistory" class="chat-history">
+                    <div class="message system">
+                        Ready. Ask questions about your document.
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <input type="text" id="userQuestion" placeholder="Type your question..."
+                        onkeypress="handleEnter(event)">
+                    <button id="sendBtn" onclick="askGemini()">Ask</button>
+                </div>
+            </div>
+            <button class="btn btn-text" onclick="location.reload()">Start Over ↺</button>
+        </div>
+
     </div>
 
     <script src="script.js"></script>
-
 </body>
 
 </html>

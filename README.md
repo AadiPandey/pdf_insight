@@ -1,53 +1,49 @@
-# 📄 PDF to JSON Parser
+# PDF RAG Question-Answering System
 
-A modern, web-based PDF parser that extracts structured data from PDF files and converts them to JSON format. Built with FastAPI and featuring a clean, responsive UI.
+An intelligent PDF question-answering system powered by RAG (Retrieval-Augmented Generation). Upload PDFs, process them through a visual pipeline, and ask questions using Google's Gemini AI.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
+![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-orange.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## Features
 
-- **PDF Text Extraction**: Extract all text content from PDF documents
-- **Table Detection**: Automatically detect and extract tables from PDFs
-- **Metadata Parsing**: Extract PDF metadata (author, title, creation date, etc.)
-- **Page-by-Page Analysis**: Get detailed information for each page including dimensions
-- **Beautiful UI**: Modern, gradient-themed interface with smooth animations
-- **Real-time Processing**: Instant PDF parsing with loading states
-- **Syntax Highlighting**: Color-coded JSON output for better readability
-- **RESTful API**: Easy-to-use API endpoint for programmatic access
-
-## Future Roadmap
-
-This project serves as the foundation for a more advanced **PDF Question-Answering System** that will:
-- Allow users to upload multiple PDFs
-- Parse and index PDF content
-- Enable natural language queries on the uploaded documents
-- Provide AI-powered answers based on PDF content
-- Support document embeddings and semantic search
+- **RAG Pipeline Visualization**: Interactive 4-stage pipeline showing the complete document processing flow
+- **PDF Text Extraction**: Extract and parse text content from PDF documents
+- **Smart Chunking**: Tokenize documents using tiktoken with configurable chunk sizes and overlap
+- **Vector Embeddings**: Generate embeddings using Google's text-embedding-004 model
+- **ChromaDB Storage**: Persistent vector storage for semantic search
+- **AI-Powered Q&A**: Ask questions and get context-aware answers using Gemini 2.5 Flash
+- **Source Attribution**: Each answer includes page references from the source document
+- **Modern UI**: Clean, progressive interface with animations and dark code themes
+- **RESTful API**: Easy-to-use API endpoints for integration
 
 ## Technology Stack
 
-- **Backend**: FastAPI (Python)
+- **Backend**: FastAPI, Uvicorn
 - **PDF Processing**: pdfplumber
-- **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Server**: Uvicorn ASGI server
+- **AI/ML**: Google Gemini API (2.5 Flash, text-embedding-004)
+- **Vector Database**: ChromaDB with persistent storage
+- **Tokenization**: tiktoken (cl100k_base encoding)
+- **Frontend**: Vanilla JavaScript, HTML5, CSS3, Marked.js for markdown rendering
 
-## Prerequisites
-
-- Python 3.8 or higher
-- pip (Python package manager)
-
-## 🔧 Installation
+## Installation
 
 1. **Clone or download this repository**
 
-2. **Install dependencies**:
+2. **Create a `.env` file** in the project root:
    ```bash
-   pip install fastapi uvicorn python-multipart pdfplumber
+   GOOGLE_API_KEY=your_gemini_api_key_here
+   ```
+   Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+3. **Install dependencies**:
+   ```bash
+   pip install fastapi uvicorn python-multipart pdfplumber tiktoken chromadb google-generativeai python-dotenv
    ```
 
-## 🚀 Usage
+## Usage
 
 ### Starting the Server
 
@@ -60,79 +56,132 @@ The server will start on `http://localhost:8000`
 
 ### Using the Web Interface
 
-1. Open your browser and navigate to `http://localhost:8000`
-2. Click "Choose File" and select a PDF
-3. Click "Parse PDF" to process the document
-4. View the extracted JSON data with syntax highlighting
+The application features a 4-stage visual pipeline:
 
-### API Endpoint
+**Stage 1: Upload**
+1. Navigate to `http://localhost:8000`
+2. Click "Select PDF" and choose your document
+3. Click "Process Document"
 
-**Parse PDF**
+**Stage 2: JSON Preview**
+- View the raw extracted text organized by pages
+
+**Stage 3: Vector Embeddings**
+- See how your document was chunked (800 tokens per chunk, 50 token overlap)
+- Preview the first 5 chunks with page metadata
+
+**Stage 4: Chat**
+- Ask questions about your document
+- Get AI-powered answers with source page references
+- Answers are formatted in markdown for better readability
+
+### API Endpoints
+
+**Process PDF**
 ```http
-POST /api/parse
+POST /api/process
 Content-Type: multipart/form-data
 
 file: <PDF_FILE>
 ```
 
-**Example using cURL**:
-```bash
-curl -X POST "http://localhost:8000/api/parse" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@your_document.pdf"
+**Response**:
+```json
+{
+  "status": "success",
+  "json_preview": {
+    "pages": [
+      {"page_number": 1, "text": "..."}
+    ]
+  },
+  "chunks_preview": [...],
+  "total_chunks": 42
+}
 ```
 
-**Example using Python**:
+**Chat with Document**
+```http
+POST /api/chat
+Content-Type: application/json
+
+{
+  "question": "What is the main topic of this document?"
+}
+```
+
+**Response**:
+```json
+{
+  "answer": "The document discusses...",
+  "sources": [1, 3, 5]
+}
+```
+
+### Example using Python
+
 ```python
 import requests
 
 with open("document.pdf", "rb") as f:
     files = {"file": f}
-    response = requests.post("http://localhost:8000/api/parse", files=files)
-    json_data = response.json()
-    print(json_data)
+    response = requests.post("http://localhost:8000/api/process", files=files)
+    data = response.json()
+    print(f"Processed {data['total_chunks']} chunks")
+
+chat_response = requests.post(
+    "http://localhost:8000/api/chat",
+    json={"question": "Summarize the key points"}
+)
+print(chat_response.json()["answer"])
 ```
 
-## 📊 Response Format
+## Architecture
 
-```json
-{
-  "metadata": {
-    "Author": "John Doe",
-    "Title": "Sample Document",
-    "CreationDate": "D:20231215120000"
-  },
-  "total_pages": 5,
-  "pages": [
-    {
-      "page_number": 1,
-      "text_preview": "First 200 characters of text...",
-      "full_text": "Complete text content of the page",
-      "tables": [
-        [
-          ["Header 1", "Header 2"],
-          ["Data 1", "Data 2"]
-        ]
-      ],
-      "width": 612.0,
-      "height": 792.0
-    }
-  ]
-}
+### RAG Pipeline
+
+1. **Extraction**: pdfplumber extracts raw text from each page
+2. **Chunking**: tiktoken splits text into ~800 token chunks with 50 token overlap
+3. **Embedding**: Gemini text-embedding-004 creates vector representations
+4. **Storage**: ChromaDB stores vectors with metadata for semantic search
+5. **Retrieval**: Query embeddings find the 5 most relevant chunks
+6. **Generation**: Gemini 2.5 Flash generates contextual answers
+
+### Data Flow
+
 ```
-## 🚧 Development
+PDF Upload → Text Extraction → Tokenization → Vector Embedding
+                                                      ↓
+User Query ← Answer Generation ← Context Assembly ← Vector Search
+```
+## Development
 
-### Adding New Features
+### Project Structure
 
-The codebase is structured for easy extension:
+```
+pdf_parser/
+├── main.py           # FastAPI backend with RAG logic
+├── index.html        # Multi-stage UI
+├── script.js         # Frontend logic and API calls
+├── style.css         # Modern styling with animations
+├── .env              # API keys (not committed)
+├── chroma_db/        # Persistent vector database
+└── README.md
+```
 
-1. **Backend** (`main.py`): Add new extraction logic in `extract_pdf_data()`
-2. **Frontend** (`index.html`): Modify UI components in HTML/CSS/JS sections
-3. **API**: Add new endpoints following FastAPI patterns
+### Configuration
 
-## 📝 License
+Adjust chunking parameters in [main.py](main.py):
+```python
+def chunk_text(text: str, page_num: int, chunk_size: int = 800, overlap: int = 50):
+```
 
-MIT License - feel free to use this project for personal or commercial purposes.
+Change the number of retrieved chunks in the chat endpoint:
+```python
+results = collection.query(query_texts=[request.question], n_results=5)
+```
 
-**Note**: This is a base implementation designed to be extended into a full PDF question-answering system with AI capabilities.
+### Customization
+
+- **Change AI Model**: Modify `genai.GenerativeModel('gemini-2.5-flash')` to use a different Gemini model
+- **Adjust Embeddings**: Change `model = "models/text-embedding-004"` in `GeminiEmbeddingFunction`
+- **Modify UI**: Edit the 4-stage pipeline in [index.html](index.html) and [style.css](style.css)
